@@ -6,7 +6,7 @@ import { useTRPC } from "@/trpc/client";
 import { authClient } from "@/lib/auth-client";
 import { StreamChat } from "stream-chat";
 import { Chat, Channel, MessageList, MessageInput } from "stream-chat-react";
-import { LoadingState } from "@/components/error-state";
+import { LoadingState } from "@/components/loading-state";
 
 interface MeetingChatProps {
     meetingId: string;

@@ -1,13 +1,35 @@
 // Text-to-Speech (TTS) Integration
-// Supports: Cartesian, ElevenLabs, Sarvam AI
+// Supports: Cartesian, ElevenLabs, Sarvam AI, Web Speech API
 
-export type TTSProvider = "cartesian" | "elevenlabs" | "sarvam";
+export type TTSProvider = "cartesian" | "elevenlabs" | "sarvam" | "webspeech";
 
 interface TTSConfig {
     provider: TTSProvider;
     apiKey: string;
     voiceId?: string;
     model?: string;
+}
+
+// Browser Native Web Speech API TTS
+export class WebSpeechTTS {
+    constructor(config: TTSConfig) {
+        // Native Speech doesn't need config, but we keep the signature consistent
+    }
+    async synthesize(text: string): Promise<ArrayBuffer> {
+        return new Promise((resolve) => {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.onend = () => {
+                // Since this goes directly to speakers, we return an empty buffer
+                // but we could theoretically capture it if needed.
+                resolve(new ArrayBuffer(0));
+            };
+            window.speechSynthesis.speak(utterance);
+        });
+    }
+
+    async synthesizeStream(text: string, onChunk: (audio: ArrayBuffer) => void): Promise<void> {
+        await this.synthesize(text);
+    }
 }
 
 // Cartesian TTS Integration
@@ -99,7 +121,7 @@ export class ElevenLabsTTS {
             },
             body: JSON.stringify({
                 text,
-                model_id: config.model || "eleven_multilingual_v2",
+                model_id: this.model,
                 voice_settings: {
                     stability: 0.5,
                     similarity_boost: 0.75,
@@ -124,7 +146,7 @@ export class ElevenLabsTTS {
             },
             body: JSON.stringify({
                 text,
-                model_id: config.model || "eleven_multilingual_v2",
+                model_id: this.model,
                 voice_settings: {
                     stability: 0.5,
                     similarity_boost: 0.75,
@@ -171,7 +193,7 @@ export class SarvamTTS {
             body: JSON.stringify({
                 text,
                 voice_id: this.voiceId,
-                language: "en",
+                language: "en-IN",
                 format: "pcm16",
                 sample_rate: 24000,
             }),
@@ -195,7 +217,7 @@ export class SarvamTTS {
             body: JSON.stringify({
                 text,
                 voice_id: this.voiceId,
-                language: "en",
+                language: "en-IN",
                 format: "pcm16",
                 sample_rate: 24000,
             }),
@@ -221,13 +243,11 @@ export class SarvamTTS {
 
 // Factory function to create TTS client
 export const createTTSClient = (config: TTSConfig) => {
-    if (config.provider === "cartesian") {
-        return new CartesianTTS(config);
-    } else if (config.provider === "elevenlabs") {
-        return new ElevenLabsTTS(config);
-    } else if (config.provider === "sarvam") {
-        return new SarvamTTS(config);
+    switch (config.provider) {
+        case "cartesian": return new CartesianTTS(config);
+        case "elevenlabs": return new ElevenLabsTTS(config);
+        case "sarvam": return new SarvamTTS(config);
+        case "webspeech": return new WebSpeechTTS(config);
+        default: return new WebSpeechTTS(config);
     }
-    throw new Error(`Unsupported TTS provider: ${config.provider}`);
 };
-

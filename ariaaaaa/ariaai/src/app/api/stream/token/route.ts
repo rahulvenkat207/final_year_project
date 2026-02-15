@@ -14,9 +14,21 @@ export async function POST(request: NextRequest) {
         }
 
         const { type } = await request.json(); // "video" or "chat"
-        const streamClient = getStreamServerClient();
+        const streamClient = getStreamServerClient(type);
         
-        const token = streamClient.createToken(session.user.id);
+        let token;
+        if (type === "video") {
+            const expirationTime = Math.floor(Date.now() / 1000) + 3600; // 1 hour
+            const issuedAt = Math.floor(Date.now() / 1000) - 60;
+            // The StreamClient (video) uses `generateUserToken` or `createToken` based on SDK version, but usually `createToken` or similar.
+            // The @stream-io/node-sdk documentation says: client.generateUserToken({ user_id: userId, validity_in_seconds: ... }) or similar but 
+            // actually for Stream Video it is often `createToken(userId, expiration, iaT)`.
+            // Let's use the standard `createToken` if it exists, or check the docs which say `client.generateUserToken` in the prompt.
+            // Prompt says: `client.generateUserToken({ user_id: userId, validity_in_seconds: validity });`
+            token = streamClient.generateUserToken({ user_id: session.user.id });
+        } else {
+            token = streamClient.createToken(session.user.id);
+        }
 
         return NextResponse.json({ token });
     } catch (error) {

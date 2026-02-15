@@ -12,9 +12,9 @@ import {
     VideoTrack,
     useTracks,
     RoomAudioRenderer,
-    Track,
+    useRoomContext
 } from "@livekit/components-react";
-import { Room, RoomEvent, TrackPublication } from "livekit-client";
+import { RoomEvent, Track, createLocalVideoTrack, LocalVideoTrack } from "livekit-client";
 import { authClient } from "@/lib/auth-client";
 import { AgentVoiceHandler } from "@/lib/ai/agent-voice";
 
@@ -24,34 +24,53 @@ interface Props {
 
 export const MeetingCallViewLiveKit = ({ meetingId }: Props) => {
     const router = useRouter();
-    const trpc = useTRPC();
-    const queryClient = useQueryClient();
-    const { data: session } = authClient.useSession();
-    const user = session?.user;
+    const session = authClient.useSession();
+    const user = session.data?.user;
     const [token, setToken] = useState<string | null>(null);
     const [roomName, setRoomName] = useState<string | null>(null);
     const [isVideoEnabled, setIsVideoEnabled] = useState(true);
     const [isAudioEnabled, setIsAudioEnabled] = useState(true);
-    const [room, setRoom] = useState<Room | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const agentVoiceHandlerRef = useRef<AgentVoiceHandler | null>(null);
+    const [isJoined, setIsJoined] = useState(false);
+    const trpc = useTRPC();
+
+    const [previewTrack, setPreviewTrack] = useState<LocalVideoTrack | null>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
 
     const { data: meeting } = useSuspenseQuery(
         trpc.meetings.getOne.queryOptions({ id: meetingId })
     );
 
-    const endMeeting = useMutation(
-        trpc.meetings.end.mutationOptions({
-            onSuccess: () => {
-                queryClient.invalidateQueries(trpc.meetings.getOne.queryOptions({ id: meetingId }));
-                queryClient.invalidateQueries(trpc.meetings.getMany.queryOptions({}));
-                router.push(`/meetings/${meetingId}`);
-            },
-            onError: (error) => {
-                toast.error(error.message);
+    useEffect(() => {
+        let track: LocalVideoTrack | null = null;
+
+        const createPreview = async () => {
+            if (!isJoined && isVideoEnabled) {
+                try {
+                    track = await createLocalVideoTrack({
+                        deviceId: undefined, 
+                        resolution: { width: 640, height: 480 },
+                    });
+                    setPreviewTrack(track);
+                    if (videoRef.current && track) {
+                        track.attach(videoRef.current);
+                    }
+                } catch (e) {
+                    console.error("Failed to create preview track", e);
+                }
+            } else if (!isVideoEnabled) {
+                setPreviewTrack(null);
             }
-        })
-    );
+        };
+
+        createPreview();
+
+        return () => {
+            if (track) {
+                track.stop();
+            }
+        };
+    }, [isJoined, isVideoEnabled]);
 
     // Initialize LiveKit token and room
     useEffect(() => {
@@ -99,6 +118,164 @@ export const MeetingCallViewLiveKit = ({ meetingId }: Props) => {
         initializeCall();
     }, [user, meetingId]);
 
+    const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL || "";
+
+    if (!serverUrl) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
+                <p>LiveKit URL not configured. Please set NEXT_PUBLIC_LIVEKIT_URL in your .env file.</p>
+            </div>
+        );
+    }
+
+    if (isLoading || !token || !roomName) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-gray-900">
+                <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+                    <h2 className="text-2xl font-bold mb-4">{meeting.name}</h2>
+                    <p className="text-gray-600 mb-6">Preparing meeting...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!isJoined) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-gray-900">
+                <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 shadow-xl">
+                    <h2 className="text-2xl font-bold mb-2 text-center">{meeting.name}</h2>
+                    <p className="text-gray-600 mb-6 text-center">Ready to join?</p>
+                    
+                    <div className="mb-8 aspect-video bg-gray-900 rounded-lg overflow-hidden relative">
+                         {isVideoEnabled && (
+                            <div className="w-full h-full flex items-center justify-center">
+                                <video ref={videoRef} className="w-full h-full object-cover transform -scale-x-100" />
+                            </div>
+                        )}
+                        {!isVideoEnabled && (
+                            <div className="w-full h-full flex items-center justify-center text-white">
+                                <div className="bg-gray-700 rounded-full p-6">
+                                    <VideoOff className="h-12 w-12" />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="space-y-4 mb-8">
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                            <span className="font-medium">Camera</span>
+                            <Button
+                                variant={isVideoEnabled ? "default" : "outline"}
+                                onClick={() => setIsVideoEnabled(!isVideoEnabled)}
+                                className={isVideoEnabled ? "bg-blue-600 hover:bg-blue-700" : ""}
+                            >
+                                {isVideoEnabled ? <Video className="h-4 w-4 mr-2" /> : <VideoOff className="h-4 w-4 mr-2" />}
+                                {isVideoEnabled ? "On" : "Off"}
+                            </Button>
+                        </div>
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                            <span className="font-medium">Microphone</span>
+                            <Button
+                                variant={isAudioEnabled ? "default" : "outline"}
+                                onClick={() => setIsAudioEnabled(!isAudioEnabled)}
+                                className={isAudioEnabled ? "bg-blue-600 hover:bg-blue-700" : ""}
+                            >
+                                {isAudioEnabled ? <Mic className="h-4 w-4 mr-2" /> : <MicOff className="h-4 w-4 mr-2" />}
+                                {isAudioEnabled ? "On" : "Off"}
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                        <Button 
+                            variant="outline" 
+                            className="flex-1"
+                            onClick={() => router.back()}
+                        >
+                            Cancel
+                        </Button>
+                        <Button 
+                            className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                            onClick={() => {
+                                if (previewTrack) previewTrack.stop();
+                                setIsJoined(true);
+                            }}
+                        >
+                            Join Now
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <LiveKitRoom
+            video={isVideoEnabled}
+            audio={isAudioEnabled}
+            token={token}
+            serverUrl={serverUrl}
+            connect={isJoined}
+            onDisconnected={() => {
+                setIsJoined(false);
+                router.push(`/meetings/${meetingId}`);
+            }}
+            data-lk-theme="default"
+        >
+            <RoomAudioRenderer />
+            <div className="flex flex-col h-screen bg-gray-900">
+                <div className="flex-1 flex items-center justify-center p-4">
+                    <VideoTracks />
+                </div>
+                
+                <RoomController 
+                    meetingId={meetingId}
+                    isVideoEnabled={isVideoEnabled}
+                    isAudioEnabled={isAudioEnabled}
+                    setIsVideoEnabled={setIsVideoEnabled}
+                    setIsAudioEnabled={setIsAudioEnabled}
+                />
+            </div>
+        </LiveKitRoom>
+    );
+};
+
+const RoomController = ({ 
+    meetingId,
+    isVideoEnabled,
+    isAudioEnabled,
+    setIsVideoEnabled,
+    setIsAudioEnabled
+}: {
+    meetingId: string;
+    isVideoEnabled: boolean;
+    isAudioEnabled: boolean;
+    setIsVideoEnabled: (v: boolean | ((prev: boolean) => boolean)) => void;
+    setIsAudioEnabled: (v: boolean | ((prev: boolean) => boolean)) => void;
+}) => {
+    const room = useRoomContext();
+    const trpc = useTRPC();
+    const router = useRouter();
+    const queryClient = useQueryClient();
+    const agentVoiceHandlerRef = useRef<AgentVoiceHandler | null>(null);
+
+    const { data: meeting } = useSuspenseQuery(
+        trpc.meetings.getOne.queryOptions({ id: meetingId })
+    );
+
+    const endMeeting = useMutation(
+        trpc.meetings.end.mutationOptions({
+            onSuccess: () => {
+                queryClient.invalidateQueries(trpc.meetings.getOne.queryOptions({ id: meetingId }));
+                queryClient.invalidateQueries(trpc.meetings.getMany.queryOptions({}));
+                router.push(`/meetings/${meetingId}`);
+            },
+            onError: (error) => {
+                toast.error(error.message);
+            }
+        })
+    );
+
     // Initialize AI agent voice handler
     useEffect(() => {
         if (!room || !meeting) return;
@@ -106,7 +283,9 @@ export const MeetingCallViewLiveKit = ({ meetingId }: Props) => {
         const initializeAgent = async () => {
             try {
                 // Get agent instructions
-                const agentResponse = await trpc.agents.getOne.query({ id: meeting.agentId });
+                const agentResponse = await queryClient.fetchQuery(
+                    trpc.agents.getOne.queryOptions({ id: meeting.agentId })
+                );
                 const agentInstructions = agentResponse.instructions;
 
                 // Initialize agent voice handler
@@ -131,19 +310,26 @@ export const MeetingCallViewLiveKit = ({ meetingId }: Props) => {
                 handler.setAudioResponseHandler(async (audioBuffer) => {
                     // Play audio through LiveKit room
                     if (room) {
-                        const audioTrack = await room.localParticipant.publishAudio(
-                            new MediaStream([new MediaStreamTrack({ kind: "audio" })])
-                        );
-                        // Note: Actual implementation would need to convert ArrayBuffer to MediaStreamTrack
+                        try {
+                            // TODO: Implement proper audio playback from ArrayBuffer
+                            // We need to decode the buffer and play it via AudioContext or publish it
+                            console.log("Received audio response from agent, length:", audioBuffer.byteLength);
+                            
+                            // Placeholder for publishing logic
+                            // const audioTrack = await room.localParticipant.publishTrack(
+                            //     new LocalAudioTrack(...) 
+                            // );
+                        } catch (e) {
+                            console.error("Failed to play agent audio", e);
+                        }
                     }
                 });
 
                 // Process audio from room
                 room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
                     if (track.kind === "audio" && participant.identity !== room.localParticipant.identity) {
-                        // Get audio stream and process it
-                        const mediaStream = new MediaStream([track.mediaStreamTrack]);
-                        handler.processLiveKitAudio(mediaStream);
+                         const mediaStream = new MediaStream([track.mediaStreamTrack]);
+                         handler.processAudioStream(mediaStream);
                     }
                 });
             } catch (error) {
@@ -161,26 +347,26 @@ export const MeetingCallViewLiveKit = ({ meetingId }: Props) => {
     }, [room, meeting]);
 
     const handleEndCall = async () => {
-        try {
-            if (agentVoiceHandlerRef.current) {
-                await agentVoiceHandlerRef.current.disconnect();
-            }
-            if (room) {
-                room.disconnect();
-            }
-            endMeeting.mutate({ id: meetingId });
-        } catch (error) {
-            console.error("Error ending call:", error);
-            endMeeting.mutate({ id: meetingId });
+        if (agentVoiceHandlerRef.current) {
+            await agentVoiceHandlerRef.current.disconnect();
         }
+        if (room) {
+            room.disconnect();
+        }
+        endMeeting.mutate({ id: meetingId });
     };
 
     const toggleVideo = async () => {
         if (!room) return;
         const videoTrack = room.localParticipant.getTrackPublication(Track.Source.Camera);
         if (videoTrack) {
-            await room.localParticipant.setCameraEnabled(!isVideoEnabled);
-            setIsVideoEnabled((prev) => !prev);
+            if (isVideoEnabled) {
+                 await room.localParticipant.setCameraEnabled(false);
+                 setIsVideoEnabled(false);
+            } else {
+                 await room.localParticipant.setCameraEnabled(true);
+                 setIsVideoEnabled(true);
+            }
         }
     };
 
@@ -188,80 +374,42 @@ export const MeetingCallViewLiveKit = ({ meetingId }: Props) => {
         if (!room) return;
         const audioTrack = room.localParticipant.getTrackPublication(Track.Source.Microphone);
         if (audioTrack) {
-            await room.localParticipant.setMicrophoneEnabled(!isAudioEnabled);
-            setIsAudioEnabled((prev) => !prev);
+             if (isAudioEnabled) {
+                 await room.localParticipant.setMicrophoneEnabled(false);
+                 setIsAudioEnabled(false);
+             } else {
+                 await room.localParticipant.setMicrophoneEnabled(true);
+                 setIsAudioEnabled(true);
+             }
         }
     };
 
-    const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL || "";
-
-    if (!serverUrl) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
-                <p>LiveKit URL not configured. Please set NEXT_PUBLIC_LIVEKIT_URL in your .env file.</p>
-            </div>
-        );
-    }
-
-    if (isLoading || !token || !roomName) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-gray-900">
-                <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
-                    <h2 className="text-2xl font-bold mb-4">{meeting.name}</h2>
-                    <p className="text-gray-600 mb-6">Joining call...</p>
-                </div>
-            </div>
-        );
-    }
-
     return (
-        <LiveKitRoom
-            video={isVideoEnabled}
-            audio={isAudioEnabled}
-            token={token}
-            serverUrl={serverUrl}
-            connect={true}
-            onConnected={(room) => {
-                setRoom(room);
-                toast.success("Joined call");
-            }}
-            onDisconnected={() => {
-                router.push(`/meetings/${meetingId}`);
-            }}
-        >
-            <RoomAudioRenderer />
-            <div className="flex flex-col h-screen bg-gray-900">
-                <div className="flex-1 flex items-center justify-center p-4">
-                    <VideoTracks />
-                </div>
-                
-                <div className="bg-gray-800 p-4 flex items-center justify-center gap-x-4">
-                    <Button
-                        variant={isVideoEnabled ? "default" : "outline"}
-                        onClick={toggleVideo}
-                        size="lg"
-                    >
-                        {isVideoEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
-                    </Button>
-                    <Button
-                        variant={isAudioEnabled ? "default" : "outline"}
-                        onClick={toggleAudio}
-                        size="lg"
-                    >
-                        {isAudioEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
-                    </Button>
-                    <Button
-                        variant="destructive"
-                        onClick={handleEndCall}
-                        disabled={endMeeting.isPending}
-                        size="lg"
-                    >
-                        <PhoneOff className="h-5 w-5 mr-2" />
-                        {endMeeting.isPending ? "Ending..." : "End Call"}
-                    </Button>
-                </div>
-            </div>
-        </LiveKitRoom>
+        <div className="bg-gray-800 p-4 flex items-center justify-center gap-x-4">
+            <Button
+                variant={isVideoEnabled ? "default" : "outline"}
+                onClick={toggleVideo}
+                size="lg"
+            >
+                {isVideoEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+            </Button>
+            <Button
+                variant={isAudioEnabled ? "default" : "outline"}
+                onClick={toggleAudio}
+                size="lg"
+            >
+                {isAudioEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+            </Button>
+            <Button
+                variant="destructive"
+                onClick={handleEndCall}
+                disabled={endMeeting.isPending}
+                size="lg"
+            >
+                <PhoneOff className="h-5 w-5 mr-2" />
+                {endMeeting.isPending ? "Ending..." : "End Call"}
+            </Button>
+        </div>
     );
 };
 
@@ -284,4 +432,3 @@ const VideoTracks = () => {
         </div>
     );
 };
-

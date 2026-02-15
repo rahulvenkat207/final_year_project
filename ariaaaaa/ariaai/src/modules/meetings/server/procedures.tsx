@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { z } from "zod";
 import { and, count, desc, eq, getTableColumns } from "drizzle-orm";
-import { meetings } from "@/db/schema";
+import { meetings, subscriptions, FREE_TIER_MEETING_LIMIT } from "@/db/schema";
 import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import { TRPCError } from "@trpc/server";
 import { MIN_PAGE_SIZE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE, DEFAULT_PAGE } from "@/constants";

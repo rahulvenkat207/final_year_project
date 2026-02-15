@@ -1,16 +1,6 @@
-import { drizzle } from "drizzle-orm/neon-serverless";
-import { neon, neonConfig } from "@neondatabase/serverless";
-
-// Only import ws in Node.js environment (server-side)
-let ws: any;
-if (typeof window === "undefined") {
-  try {
-    ws = require("ws");
-    neonConfig.webSocketConstructor = ws;
-  } catch (e) {
-    console.warn("ws package not found, using default WebSocket");
-  }
-}
+import { drizzle } from "drizzle-orm/neon-http";
+import { neon } from "@neondatabase/serverless";
+import * as schema from "./schema";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -24,4 +14,5 @@ const sql = neon(connectionString);
 // Export drizzle instance
 export const db = drizzle(sql, {
   logger: false,
+  schema,
 });

@@ -30,10 +30,8 @@ const getBaseURL = () => {
     console.log("[Auth Config] Using NEXT_PUBLIC_APP_URL:", url);
     return url;
   }
-  // Default to 3001 since that's what Next.js is using when 3000 is occupied
-  const defaultURL = process.env.NODE_ENV === "development" 
-    ? "http://localhost:3001" 
-    : "http://localhost:3000";
+  // Default to 3000 as it's the standard Next.js dev port
+  const defaultURL = "http://localhost:3000";
   console.log("[Auth Config] Using default baseURL:", defaultURL);
   return defaultURL;
 };

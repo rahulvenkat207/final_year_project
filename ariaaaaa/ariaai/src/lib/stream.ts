@@ -33,12 +33,24 @@ export const getStreamChatClient = (userId: string, token: string) => {
 };
 
 // Server-side Stream client for API routes
-export const getStreamServerClient = () => {
+export const getStreamServerClient = (type: "chat" | "video" = "chat") => {
+    if (type === "video") {
+        const { StreamClient } = require("@stream-io/node-sdk");
+        const apiKey = process.env.NEXT_PUBLIC_STREAM_VEDIO_API_KEY;
+        const apiSecret = process.env.STREAM_VEDIO_SECRET_KEY;
+
+        if (!apiKey || !apiSecret) {
+            throw new Error("Stream Video API credentials are not set");
+        }
+
+        return new StreamClient(apiKey, apiSecret);
+    }
+
     const apiKey = process.env.NEXT_PUBLIC_STREAM_API_KEY;
     const apiSecret = process.env.STREAM_API_SECRET;
     
     if (!apiKey || !apiSecret) {
-        throw new Error("Stream API credentials are not set");
+        throw new Error("Stream Chat API credentials are not set");
     }
 
     return StreamChat.getInstance(apiKey, apiSecret);

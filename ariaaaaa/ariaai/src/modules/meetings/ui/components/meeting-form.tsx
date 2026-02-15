@@ -44,8 +44,7 @@ export const MeetingForm = ({
     const router = useRouter();
     const queryClient = useQueryClient();
 
-    // Fetch agents for the dropdown
-    const { data: agentsData } = useQuery(
+    const { data: agentsData, isLoading: isLoadingAgents, isError: isErrorAgents } = useQuery(
         trpc.agents.getMany.queryOptions({
             page: 1,
             pageSize: 100, // Get all agents
@@ -103,18 +102,29 @@ export const MeetingForm = ({
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel>Agent</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
+                            <Select 
+                                onValueChange={field.onChange} 
+                                value={field.value}
+                                disabled={isLoadingAgents || isErrorAgents}
+                            >
                                 <FormControl>
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Select an agent" />
+                                        <SelectValue placeholder={
+                                            isLoadingAgents ? "Loading agents..." : 
+                                            isErrorAgents ? "Error loading agents" :
+                                            "Select an agent"
+                                        } />
                                     </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                    {agentsData?.items.map((agent) => (
+                                    {agentsData?.items?.map((agent) => (
                                         <SelectItem key={agent.id} value={agent.id}>
                                             {agent.name}
                                         </SelectItem>
                                     ))}
+                                    {!isLoadingAgents && !isErrorAgents && (!agentsData?.items || agentsData.items.length === 0) && (
+                                         <div className="p-2 text-sm text-gray-500 text-center">No agents found. Create one first.</div>
+                                    )}
                                 </SelectContent>
                             </Select>
                             <FormMessage />
@@ -134,7 +144,7 @@ export const MeetingForm = ({
                     )}
                     <Button
                         type="submit"
-                        disabled={isPending || !agentsData?.items.length}
+                        disabled={isPending || isLoadingAgents || !agentsData?.items?.length}
                     >
                         {isPending ? "Creating..." : "Create Meeting"}
                     </Button>

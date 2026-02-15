@@ -1,7 +1,7 @@
 // LLM Integration for Summarization
-// Supports: Grok (xAI), Kimi (Moonshot AI), Gemini (Google)
+// Supports: Grok (xAI), Kimi (Moonshot AI), Gemini (Google), Groq AI
 
-export type LLMProvider = "grok" | "kimi" | "gemini";
+export type LLMProvider = "grok" | "kimi" | "gemini" | "groq";
 
 interface LLMConfig {
     provider: LLMProvider;
@@ -11,6 +11,54 @@ interface LLMConfig {
 interface LLMMessage {
     role: "system" | "user" | "assistant";
     content: string;
+}
+
+// Groq AI Integration (OpenAI Compatible)
+export class GroqLLM {
+    private apiKey: string;
+    private baseUrl = "https://api.groq.com/openai/v1";
+
+    constructor(config: LLMConfig) {
+        this.apiKey = config.apiKey;
+    }
+
+    async chatCompletion(messages: LLMMessage[], model: string = "llama-3.3-70b-versatile") {
+        const response = await fetch(`${this.baseUrl}/chat/completions`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${this.apiKey}`,
+            },
+            body: JSON.stringify({
+                model,
+                messages,
+                temperature: 0.7,
+            }),
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`Groq API error: ${error}`);
+        }
+
+        const data = await response.json();
+        return data.choices[0]?.message?.content || "";
+    }
+
+    async summarize(transcript: string, instructions?: string): Promise<string> {
+        const messages: LLMMessage[] = [
+            {
+                role: "system",
+                content: instructions || "You are a helpful assistant that summarizes meeting transcripts.",
+            },
+            {
+                role: "user",
+                content: `Please summarize this meeting transcript:\n\n${transcript}`,
+            },
+        ];
+
+        return this.chatCompletion(messages);
+    }
 }
 
 // Grok (xAI) Integration
@@ -49,7 +97,7 @@ export class GrokLLM {
         const messages: LLMMessage[] = [
             {
                 role: "system",
-                content: instructions || "You are a helpful assistant that summarizes meeting transcripts. Provide a clear, organized summary with key points and action items.",
+                content: instructions || "You are a helpful assistant that summarizes meeting transcripts.",
             },
             {
                 role: "user",
@@ -97,7 +145,7 @@ export class KimiLLM {
         const messages: LLMMessage[] = [
             {
                 role: "system",
-                content: instructions || "You are a helpful assistant that summarizes meeting transcripts. Provide a clear, organized summary with key points and action items.",
+                content: instructions || "You are a helpful assistant that summarizes meeting transcripts.",
             },
             {
                 role: "user",
@@ -119,7 +167,6 @@ export class GeminiLLM {
     }
 
     async chatCompletion(messages: LLMMessage[], model: string = "gemini-pro") {
-        // Convert messages to Gemini format
         const contents = messages
             .filter(m => m.role !== "system")
             .map(m => ({
@@ -127,7 +174,6 @@ export class GeminiLLM {
                 parts: [{ text: m.content }],
             }));
 
-        // Add system instruction if present
         const systemInstruction = messages.find(m => m.role === "system")?.content;
 
         const response = await fetch(
@@ -157,7 +203,7 @@ export class GeminiLLM {
         const messages: LLMMessage[] = [
             {
                 role: "system",
-                content: instructions || "You are a helpful assistant that summarizes meeting transcripts. Provide a clear, organized summary with key points and action items.",
+                content: instructions || "You are a helpful assistant that summarizes meeting transcripts.",
             },
             {
                 role: "user",
@@ -177,7 +223,8 @@ export const createLLMClient = (config: LLMConfig) => {
         return new KimiLLM(config);
     } else if (config.provider === "gemini") {
         return new GeminiLLM(config);
+    } else if (config.provider === "groq") {
+        return new GroqLLM(config);
     }
     throw new Error(`Unsupported LLM provider: ${config.provider}`);
 };
-

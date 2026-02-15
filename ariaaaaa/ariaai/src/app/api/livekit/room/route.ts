@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { getStreamServerClient } from "@/lib/stream";
 import { db } from "@/db";
 import { meetings } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -28,37 +27,20 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
         }
 
-        const streamClient = getStreamServerClient();
-        
-        // Create or get call
-        const call = streamClient.video.call("default", meetingId);
-        await call.getOrCreate({
-            data: {
-                custom: {
-                    meetingId,
-                    agentId: meeting.agentId,
-                },
-            },
-        });
+        // LiveKit room name (use meeting ID)
+        const roomName = `meeting-${meetingId}`;
 
-        // Create user tokens for user and agent
-        const userToken = streamClient.createToken(session.user.id);
-        const agentToken = streamClient.createToken(`agent-${meeting.agentId}`);
-
-        return NextResponse.json({
-            callId: meetingId,
-            userToken,
-            agentToken,
+        return NextResponse.json({ 
+            roomName,
+            meetingId,
+            agentId: meeting.agentId,
         });
     } catch (error) {
-        console.error("Error creating Stream call:", error);
+        console.error("Error creating LiveKit room:", error);
         return NextResponse.json(
-            { error: "Failed to create call" },
+            { error: "Failed to create room" },
             { status: 500 }
         );
     }
 }
-
-
-
 

@@ -50,28 +50,86 @@ export const SignUpView = () => {
     },
   });
 
-  const onSubmit = (data: z.infer<typeof formSchema>) => {
+  const onSubmit = async (data: z.infer<typeof formSchema>) => {
     setError(null);
     setPending(true);
 
-    authClient.signUp.email(
-      {
+    try {
+      console.log("Attempting signup with:", { email: data.email, name: data.name });
+      
+      // Use Better Auth client directly - it handles routing correctly
+      const result = await authClient.signUp.email({
         name: data.name,
         email: data.email,
         password: data.password,
         callbackURL: "/",
-      },
-      {
-        onSuccess: () => {
-          setPending(false);
-          router.push("/");
-        },
+      });
 
-        onError: ({ error }) => {
-          setError(error.message);
-        },
+      console.log("Better-auth result:", JSON.stringify(result, null, 2));
+      console.log("Result keys:", Object.keys(result || {}));
+      console.log("Result error:", result?.error);
+      console.log("Result error type:", typeof result?.error);
+      console.log("Result error keys:", result?.error ? Object.keys(result.error) : []);
+
+      // Check for error in various formats
+      if (result?.error) {
+        const errorObj = result.error;
+        console.error("Better-auth error object:", errorObj);
+        console.error("Error object stringified:", JSON.stringify(errorObj));
+        
+        // Try to extract error message from various possible structures
+        const errorMsg = 
+          errorObj?.message || 
+          errorObj?.code || 
+          (typeof errorObj === 'string' ? errorObj : null) ||
+          (errorObj && Object.keys(errorObj).length === 0 ? "Sign up failed. Please check server logs for details." : null) ||
+          JSON.stringify(errorObj) ||
+          "Sign up failed. Please check your information.";
+        
+        setError(errorMsg);
+        setPending(false);
+        return;
       }
-    );
+
+      // Check if there's an error status or other error indicators
+      if (result?.status === 'error' || result?.success === false) {
+        const errorMsg = result?.message || "Sign up failed. Please try again.";
+        setError(errorMsg);
+        setPending(false);
+        return;
+      }
+
+      if (result?.data || result?.user) {
+        console.log("Sign up successful, redirecting...");
+        setPending(false);
+        window.location.href = "/";
+        return;
+      }
+
+      // If we have a result but no data and no error, log it
+      console.warn("Unexpected response structure:", result);
+      console.warn("Full result object:", JSON.stringify(result, null, 2));
+      setError("Sign up completed but received unexpected response. Please check server logs or try signing in.");
+      setPending(false);
+    } catch (err: any) {
+      console.error("Sign up exception:", err);
+      
+      // Extract error message safely
+      let errorMessage = "Failed to sign up. Please try again.";
+      
+      if (err?.message) {
+        errorMessage = err.message;
+      } else if (err?.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err?.data?.message) {
+        errorMessage = err.data.message;
+      } else if (err?.error?.message) {
+        errorMessage = err.error.message;
+      }
+
+      setError(errorMessage);
+      setPending(false);
+    }
   };
 
   const onSocial = (provider: "github" | "google") => {
@@ -80,17 +138,16 @@ export const SignUpView = () => {
 
     authClient.signIn.social(
       {
-        provider: provider, //provider as prop
+        provider: provider,
         callbackURL: "/",
       },
       {
         onSuccess: () => {
           setPending(false);
         },
-
         onError: ({ error }) => {
           setPending(false);
-          setError(error.message);
+          setError(error?.message || `An error occurred during ${provider} sign in`);
         },
       }
     );
@@ -195,8 +252,8 @@ export const SignUpView = () => {
                   </Alert>
                 )}
 
-                <Button disabled={pending} type="submit" className="w--full">
-                  Sign up
+                <Button disabled={pending} type="submit" className="w-full">
+                  {pending ? "Signing up..." : "Sign up"}
                 </Button>
                 <div
                   className="after:border-border relative text-center text-sm after:absolute

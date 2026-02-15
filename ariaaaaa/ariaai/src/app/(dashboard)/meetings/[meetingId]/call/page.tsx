@@ -1,5 +1,8 @@
 import { Suspense } from "react";
-import { MeetingCallView } from "@/modules/meetings/ui/views/meeting-call-view";
+// Using LiveKit version - change back to Stream.io version if needed
+import { MeetingCallViewLiveKit as MeetingCallView } from "@/modules/meetings/ui/views/meeting-call-view-livekit";
+// Original Stream.io version (backup):
+// import { MeetingCallView } from "@/modules/meetings/ui/views/meeting-call-view";
 
 interface Props {
     params: Promise<{

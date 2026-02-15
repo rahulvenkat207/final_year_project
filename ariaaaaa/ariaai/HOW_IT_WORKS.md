@@ -403,3 +403,4 @@ Even without Stream/OpenAI/Inngest keys, you can:
 This is a **full-stack Next.js application** for AI-powered video meetings. The core functionality (auth, agents, meetings) works without API keys, but video calls and AI features require Stream.io and OpenAI keys. The architecture is modular, type-safe (TypeScript + tRPC), and scalable.
 
 
+

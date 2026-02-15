@@ -3,17 +3,48 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 
+// Optimize auth configuration for performance
+
+// Build social providers conditionally
+const socialProviders: any = {};
+
+if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
+  socialProviders.github = {
+    clientId: process.env.GITHUB_CLIENT_ID,
+    clientSecret: process.env.GITHUB_CLIENT_SECRET,
+  };
+}
+
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  socialProviders.google = {
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  };
+}
+
+// Get base URL - prioritize env var, fallback to localhost:3001 for dev
+// Better Auth validates Origin header against baseURL, so it must match exactly
+const getBaseURL = () => {
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    const url = process.env.NEXT_PUBLIC_APP_URL;
+    console.log("[Auth Config] Using NEXT_PUBLIC_APP_URL:", url);
+    return url;
+  }
+  // Default to 3001 since that's what Next.js is using when 3000 is occupied
+  const defaultURL = process.env.NODE_ENV === "development" 
+    ? "http://localhost:3001" 
+    : "http://localhost:3000";
+  console.log("[Auth Config] Using default baseURL:", defaultURL);
+  return defaultURL;
+};
+
+const baseURL = getBaseURL();
+console.log("[Auth Config] Final baseURL:", baseURL);
+
 export const auth = betterAuth({
-  socialProviders: {
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID as string,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
-    },
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-    },
-  },
+  baseURL: baseURL,
+  basePath: "/api/auth",
+  ...(Object.keys(socialProviders).length > 0 ? { socialProviders } : {}),
   emailAndPassword: {
     enabled: true,
   },

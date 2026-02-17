@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { pgTable, text, timestamp, boolean, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, pgEnum, jsonb } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -100,6 +100,8 @@ export const meetings = pgTable("meetings", {
     transcriptUrl :text("transcript_url"),
      recordUrl:text("recording_url"),
      summary:text("summary"),
+     invitees: jsonb("invitees").$type<string[]>().default([]).notNull(),
+     scheduledAt: timestamp("scheduled_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
     

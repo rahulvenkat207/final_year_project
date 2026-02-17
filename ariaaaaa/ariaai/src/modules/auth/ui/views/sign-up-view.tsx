@@ -1,10 +1,10 @@
 "use client";
 
-import { email, z } from "zod";
+import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { OctagonAlertIcon } from "lucide-react";
+import { OctagonAlertIcon, Loader2, ArrowRight } from "lucide-react";
 import { useForm } from "react-hook-form";
-import { FaGoogle, FaGithub } from "react-icons/fa";
+import { FcGoogle } from "react-icons/fc";
 
 import { authClient } from "@/lib/auth-client";
 import { Alert, AlertTitle } from "@/components/ui/alert";
@@ -26,12 +26,12 @@ import { useState } from "react";
 const formSchema = z
   .object({
     name: z.string().min(1, { message: "Name is required" }),
-    email: z.email(),
-    password: z.string().min(1, { message: "password is required" }),
-    confirmPassword: z.string().min(1, { message: "Password is required" }),
+    email: z.string().email({ message: "Invalid email address" }),
+    password: z.string().min(8, { message: "Password must be at least 8 characters" }),
+    confirmPassword: z.string().min(1, { message: "Please confirm your password" }),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: "passwords don't match",
+    message: "Passwords don't match",
     path: ["confirmPassword"],
   });
 
@@ -40,7 +40,7 @@ export const SignUpView = () => {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  const form = useForm({
+  const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
@@ -55,9 +55,6 @@ export const SignUpView = () => {
     setPending(true);
 
     try {
-      console.log("Attempting signup with:", { email: data.email, name: data.name });
-      
-      // Use Better Auth client directly - it handles routing correctly
       const result = await authClient.signUp.email({
         name: data.name,
         email: data.email,
@@ -65,80 +62,27 @@ export const SignUpView = () => {
         callbackURL: "/",
       });
 
-      console.log("Better-auth result:", JSON.stringify(result, null, 2));
-      console.log("Result keys:", Object.keys(result || {}));
-      console.log("Result error:", result?.error);
-      console.log("Result error type:", typeof result?.error);
-      console.log("Result error keys:", result?.error ? Object.keys(result.error) : []);
-
-      // Check for error in various formats
       if (result?.error) {
-        const errorObj = result.error;
-        console.error("Better-auth error object:", errorObj);
-        console.error("Error object stringified:", JSON.stringify(errorObj));
-        
-        // Try to extract error message from various possible structures
-        const errorMsg = 
-          errorObj?.message || 
-          errorObj?.code || 
-          (typeof errorObj === 'string' ? errorObj : null) ||
-          (errorObj && Object.keys(errorObj).length === 0 ? "Sign up failed. Please check server logs for details." : null) ||
-          JSON.stringify(errorObj) ||
-          "Sign up failed. Please check your information.";
-        
-        setError(errorMsg);
+        setError(result.error.message || "Sign up failed. Please try again.");
         setPending(false);
         return;
       }
 
-      // Check if there's an error status or other error indicators
-      if (result?.status === 'error' || result?.success === false) {
-        const errorMsg = result?.message || "Sign up failed. Please try again.";
-        setError(errorMsg);
-        setPending(false);
-        return;
-      }
-
-      if (result?.data || result?.user) {
-        console.log("Sign up successful, redirecting...");
-        setPending(false);
-        window.location.href = "/";
-        return;
-      }
-
-      // If we have a result but no data and no error, log it
-      console.warn("Unexpected response structure:", result);
-      console.warn("Full result object:", JSON.stringify(result, null, 2));
-      setError("Sign up completed but received unexpected response. Please check server logs or try signing in.");
-      setPending(false);
+      // Successful signup
+      router.push("/");
     } catch (err: any) {
-      console.error("Sign up exception:", err);
-      
-      // Extract error message safely
-      let errorMessage = "Failed to sign up. Please try again.";
-      
-      if (err?.message) {
-        errorMessage = err.message;
-      } else if (err?.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err?.data?.message) {
-        errorMessage = err.data.message;
-      } else if (err?.error?.message) {
-        errorMessage = err.error.message;
-      }
-
-      setError(errorMessage);
+      setError(err?.message || "An unexpected error occurred. Please try again.");
       setPending(false);
     }
   };
 
-  const onSocial = (provider: "github" | "google") => {
+  const onGoogleSignUp = () => {
     setError(null);
     setPending(true);
 
     authClient.signIn.social(
       {
-        provider: provider,
+        provider: "google",
         callbackURL: "/",
       },
       {
@@ -147,75 +91,124 @@ export const SignUpView = () => {
         },
         onError: ({ error }) => {
           setPending(false);
-          setError(error?.message || `An error occurred during ${provider} sign in`);
+          setError(error.message);
         },
       }
     );
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <Card className="overflow-hidden p-0">
+    <div className="flex min-h-[90vh] items-center justify-center p-4">
+      <Card className="w-full max-w-[1000px] overflow-hidden border-indigo-100/20 bg-white/80 shadow-2xl backdrop-blur-xl dark:border-indigo-500/10 dark:bg-zinc-950/80">
         <CardContent className="grid p-0 md:grid-cols-2">
-          <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(onSubmit)}
-              className="p-6 md:pd-8"
-            >
-              <div className="flex flex-col gap-6">
-                <div className="flex flex-col items-center text-center">
-                  <h1 className="text-2xl font-bold">Let&apos;s get started</h1>
-                  <p className="text-muted-foreground">Create your account</p>
-                </div>
-                {/* Name Field */}
-                <div className="grid gap-3">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Name</FormLabel>
-                        <FormControl>
-                          <Input type="text" placeholder="rahul" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                {/* Email Field*/}
-                <div className="grid gap-3">
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="email"
-                            placeholder="a@example.com"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+          {/* Left Side: Decorative - Switched for variety or keeping consistent with sign-in */}
+          <div className="relative hidden flex-col items-center justify-center overflow-hidden bg-indigo-600 p-12 text-white md:flex">
+             {/* Background pattern */}
+             <div className="absolute inset-0 z-0 opacity-20">
+              <svg className="h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <defs>
+                  <pattern id="grid-signup" width="10" height="10" patternUnits="userSpaceOnUse">
+                    <path d="M 10 0 L 0 0 0 10" fill="none" stroke="currentColor" strokeWidth="0.5" />
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#grid-signup)" />
+              </svg>
+            </div>
+            
+            <div className="absolute -left-16 -bottom-16 size-80 rounded-full bg-indigo-500/50 blur-3xl animate-pulse" />
+            <div className="absolute -top-16 -right-16 size-64 rounded-full bg-indigo-700/50 blur-3xl" />
 
-                {/* Password Field */}
-                <div className="grid gap-3">
+            <div className="relative z-10 text-center">
+              <h2 className="text-4xl font-bold tracking-tight mb-4">Join Aria AI</h2>
+              <p className="text-balance text-lg text-indigo-100/90 mb-8">
+                Unlock the power of AI-assisted meetings and seamless collaboration.
+              </p>
+              
+              <div className="space-y-4 text-left inline-block">
+                <div className="flex items-center gap-3">
+                  <div className="flex size-8 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20">
+                    <ArrowRight className="size-4" />
+                  </div>
+                  <span className="text-indigo-100">Automated Meeting Minutes</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex size-8 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20">
+                    <ArrowRight className="size-4" />
+                  </div>
+                  <span className="text-indigo-100">Real-time AI Assistant</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex size-8 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20">
+                    <ArrowRight className="size-4" />
+                  </div>
+                  <span className="text-indigo-100">Smart Scheduling Tools</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Side: Form */}
+          <div className="flex flex-col justify-center p-8 md:p-12">
+            <div className="mb-8 space-y-2">
+              <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                Create an account
+              </h1>
+              <p className="text-zinc-500 dark:text-zinc-400">
+                Sign up and start organizing better meetings
+              </p>
+            </div>
+
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-zinc-700 dark:text-zinc-300">Full Name</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="John Doe"
+                          className="h-10 border-zinc-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-zinc-800 dark:bg-zinc-900"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-zinc-700 dark:text-zinc-300">Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="john@example.com"
+                          className="h-10 border-zinc-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-zinc-800 dark:bg-zinc-900"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <FormField
                     control={form.control}
                     name="password"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Password</FormLabel>
+                        <FormLabel className="text-zinc-700 dark:text-zinc-300">Password</FormLabel>
                         <FormControl>
                           <Input
                             type="password"
-                            placeholder="********"
+                            placeholder="••••••••"
+                            className="h-10 border-zinc-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-zinc-800 dark:bg-zinc-900"
                             {...field}
                           />
                         </FormControl>
@@ -223,19 +216,18 @@ export const SignUpView = () => {
                       </FormItem>
                     )}
                   />
-                </div>
-                {/* confirm password field*/}
-                <div className="grid gap-3">
+
                   <FormField
                     control={form.control}
                     name="confirmPassword"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Confirm Password</FormLabel>
+                        <FormLabel className="text-zinc-700 dark:text-zinc-300">Confirm</FormLabel>
                         <FormControl>
                           <Input
                             type="password"
-                            placeholder="********"
+                            placeholder="••••••••"
+                            className="h-10 border-zinc-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-zinc-800 dark:bg-zinc-900"
                             {...field}
                           />
                         </FormControl>
@@ -246,65 +238,60 @@ export const SignUpView = () => {
                 </div>
 
                 {!!error && (
-                  <Alert className="bg-destructive/10 border-none">
-                    <OctagonAlertIcon className="h-4 w-4 !text-destructive" />
-                    <AlertTitle>{error}</AlertTitle>
+                  <Alert variant="destructive" className="border-none bg-red-50 text-red-900 dark:bg-red-900/20 dark:text-red-400">
+                    <OctagonAlertIcon className="size-4" />
+                    <AlertTitle className="text-sm font-medium">{error}</AlertTitle>
                   </Alert>
                 )}
 
-                <Button disabled={pending} type="submit" className="w-full">
-                  {pending ? "Signing up..." : "Sign up"}
-                </Button>
-                <div
-                  className="after:border-border relative text-center text-sm after:absolute
-                after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t"
+                <Button 
+                  disabled={pending} 
+                  type="submit" 
+                  className="group h-11 w-full bg-indigo-600 font-semibold text-white transition-all hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-500/20"
                 >
-                  <span className="bg-card text-muted-foreground relative z-10 px-2">
-                    Or continue with
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <Button
-                    disabled={pending}
-                    onClick={() => onSocial("google")}
-                    variant="outline"
-                    type="button"
-                    className="w-full flex items-center gap-2"
-                  >
-                    <FaGoogle className="h-4 w-4" />
-                    Google
-                  </Button>
+                  {pending ? (
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                  ) : (
+                    <>
+                      Create account
+                      <ArrowRight className="ml-2 size-4 transition-transform group-hover:translate-x-1" />
+                    </>
+                  )}
+                </Button>
+              </form>
+            </Form>
 
-                  <Button
-                    disabled={pending}
-                    onClick={() => onSocial("github")}
-                    variant="outline"
-                    type="button"
-                    className="w-full flex items-center gap-2"
-                  >
-                    <FaGithub className="h-4 w-4" />
-                    Github
-                  </Button>
-                </div>
-                <div className="text-center text-sm">
-                  Already have an account?{" "}
-                  <Link
-                    href="/sign-in"
-                    className="underline underline-offset-2"
-                  >
-                    Sign in
-                  </Link>
-                </div>
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-zinc-200 dark:border-zinc-800" />
               </div>
-            </form>
-          </Form>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-zinc-500 dark:bg-zinc-950 dark:text-zinc-400">
+                  Or sign up with
+                </span>
+              </div>
+            </div>
 
-          <div
-            className="bg-radial from-sidebar-accent to-sidebar relative hidden  md:flex flex-col
-          gap-y-4 items-center justify-center"
-          >
-            <img src="/logo.svg" alt="Logo" className="h-[92px] w-[92px]" />
-            <p className="text-2xl font-semibold text-white">Aria.AI</p>
+            <Button
+              disabled={pending}
+              onClick={onGoogleSignUp}
+              variant="outline"
+              type="button"
+              className="h-11 w-full border-zinc-200 bg-white font-medium text-zinc-700 transition-all hover:bg-zinc-50 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800/50"
+            >
+              <FcGoogle className="mr-2 size-5" />
+              Sign up with Google
+            </Button>
+
+            <p className="mt-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+              Already have an account?{" "}
+              <Link
+                href="/sign-in"
+                className="font-semibold text-indigo-600 underline-offset-4 hover:underline dark:text-indigo-400"
+              >
+                Sign in
+              </Link>
+            </p>
           </div>
         </CardContent>
       </Card>

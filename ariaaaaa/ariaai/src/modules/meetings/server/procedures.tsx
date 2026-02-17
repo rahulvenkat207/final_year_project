@@ -7,6 +7,7 @@ import { TRPCError } from "@trpc/server";
 import { MIN_PAGE_SIZE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE, DEFAULT_PAGE } from "@/constants";
 import { ilike } from "drizzle-orm";
 import { meetingsInsertSchema } from "../schemas";
+import { sendMeetingInvite } from "@/lib/mail";
 
 export const meetingsRouter = createTRPCRouter({
     create: protectedProcedure
@@ -39,10 +40,27 @@ export const meetingsRouter = createTRPCRouter({
                 .insert(meetings)
                 .values({
                     ...input,
-                    userId: ctx.auth.id
+                    userId: ctx.auth.id,
+                    scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
                 })
                 .returning();
-            // TODO: Create stream call, upsert stream users
+            
+            // Send invitations if there are invitees
+            if (input.invitees && input.invitees.length > 0) {
+                try {
+                    const joinUrl = `${process.env.NEXT_PUBLIC_APP_URL}/meetings/${created.id}`;
+                    await sendMeetingInvite({
+                        to: input.invitees,
+                        meetingName: created.name,
+                        organizerName: ctx.auth.name || "Aria User",
+                        joinUrl,
+                        scheduledAt: created.scheduledAt,
+                    });
+                } catch (error) {
+                    console.error("Failed to send invitations:", error);
+                }
+            }
+
             return created;
         }),
     getOne: protectedProcedure

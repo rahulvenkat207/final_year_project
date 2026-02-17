@@ -45,6 +45,20 @@ export const meetingsColumns: ColumnDef<MeetingGetOne>[] = [
         },
     },
     {
+        accessorKey: "scheduledAt",
+        header: () => <span className="text-gray-900 font-semibold">Scheduled</span>,
+        cell: ({ row }) => {
+            const scheduledAt = row.original.scheduledAt;
+            if (!scheduledAt) return <span className="text-gray-500">-</span>;
+            return (
+                <div className="flex items-center gap-x-1 text-sm text-gray-700">
+                    <Clock className="size-3 text-indigo-500" />
+                    {format(new Date(scheduledAt), "MMM d, HH:mm")}
+                </div>
+            );
+        },
+    },
+    {
         accessorKey: "startedAt",
         header: () => <span className="text-gray-900 font-semibold">Started</span>,
         cell: ({ row }) => {

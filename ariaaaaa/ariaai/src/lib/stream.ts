@@ -24,12 +24,7 @@ export const getStreamChatClient = (userId: string, token: string) => {
         throw new Error("NEXT_PUBLIC_STREAM_API_KEY is not set");
     }
 
-    return StreamChat.getInstance(apiKey, {
-        token,
-        user: {
-            id: userId,
-        },
-    });
+    return StreamChat.getInstance(apiKey);
 };
 
 // Server-side Stream client for API routes

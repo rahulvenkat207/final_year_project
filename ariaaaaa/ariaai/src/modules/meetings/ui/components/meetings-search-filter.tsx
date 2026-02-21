@@ -9,7 +9,7 @@ import { DEFAULT_PAGE } from "@/constants";
 export const MeetingsSearchFilter = () => {
     const [filters, setFilters] = useMeetingFilters();
     const [searchValue, setSearchValue] = useState(filters.search || "");
-    const timeoutRef = useRef<NodeJS.Timeout>();
+    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         if (timeoutRef.current) {

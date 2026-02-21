@@ -28,7 +28,7 @@ const pool = new Pool({
   allowExitOnIdle: true,
 });
 
-pool.on("error", (err) => {
+pool.on("error", (err: Error) => {
   console.error("Database connection error:", err.message);
 });
 

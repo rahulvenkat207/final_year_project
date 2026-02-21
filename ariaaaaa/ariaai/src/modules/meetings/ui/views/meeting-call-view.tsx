@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTRPC } from "@/trpc/client";
 import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { 
     PhoneOff, 
     Video, 

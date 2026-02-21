@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { useTRPC } from "@/trpc/client";
 import { authClient } from "@/lib/auth-client";
-import { StreamChat } from "stream-chat";
+import { StreamChat, type Channel as StreamChannel } from "stream-chat";
 import { Chat, Channel, MessageList, MessageInput } from "stream-chat-react";
 import { LoadingState } from "@/components/loading-state";
 
@@ -15,6 +13,7 @@ interface MeetingChatProps {
 export const MeetingChat = ({ meetingId }: MeetingChatProps) => {
     const { data: session } = authClient.useSession();
     const [chatClient, setChatClient] = useState<StreamChat | null>(null);
+    const [channel, setChannel] = useState<StreamChannel | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -24,24 +23,18 @@ export const MeetingChat = ({ meetingId }: MeetingChatProps) => {
             try {
                 setIsLoading(true);
 
-                // Get Stream token
                 const tokenResponse = await fetch("/api/stream/token", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ type: "chat" }),
                 });
 
-                if (!tokenResponse.ok) {
-                    throw new Error("Failed to get Stream token");
-                }
+                if (!tokenResponse.ok) throw new Error("Failed to get Stream token");
 
                 const { token } = await tokenResponse.json();
 
-                // Create Stream Chat client
                 const apiKey = process.env.NEXT_PUBLIC_STREAM_API_KEY;
-                if (!apiKey) {
-                    throw new Error("Stream API key not configured");
-                }
+                if (!apiKey) throw new Error("Stream API key not configured");
 
                 const client = StreamChat.getInstance(apiKey);
                 await client.connectUser(
@@ -53,7 +46,12 @@ export const MeetingChat = ({ meetingId }: MeetingChatProps) => {
                     token
                 );
 
+                const channelId = `meeting-${meetingId}`;
+                const ch = client.channel("messaging", channelId);
+                await ch.watch();
+
                 setChatClient(client);
+                setChannel(ch);
                 setIsLoading(false);
             } catch (error) {
                 console.error("Error initializing chat:", error);
@@ -64,13 +62,12 @@ export const MeetingChat = ({ meetingId }: MeetingChatProps) => {
         initializeChat();
 
         return () => {
-            if (chatClient) {
-                chatClient.disconnectUser().catch(console.error);
-            }
+            chatClient?.disconnectUser().catch(console.error);
         };
-    }, [session?.user]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [session?.user?.id, meetingId]);
 
-    if (isLoading || !chatClient) {
+    if (isLoading || !chatClient || !channel) {
         return (
             <div className="flex items-center justify-center h-[600px]">
                 <LoadingState title="Loading chat..." description="This may take a few seconds" />
@@ -78,11 +75,9 @@ export const MeetingChat = ({ meetingId }: MeetingChatProps) => {
         );
     }
 
-    const channelId = `meeting-${meetingId}`;
-
     return (
         <Chat client={chatClient}>
-            <Channel channelId={channelId}>
+            <Channel channel={channel}>
                 <div className="flex flex-col h-[600px]">
                     <div className="flex-1 overflow-hidden">
                         <MessageList />
@@ -95,4 +90,3 @@ export const MeetingChat = ({ meetingId }: MeetingChatProps) => {
         </Chat>
     );
 };
-

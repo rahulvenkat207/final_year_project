@@ -128,3 +128,33 @@ export const subscriptions = pgTable("subscriptions", {
 // Free tier limits
 export const FREE_TIER_MEETING_LIMIT = 5;
 export const FREE_TIER_AGENT_LIMIT = 3;
+
+// ─── Custom Agent Proposals ───────────────────────────────────────────────────
+
+export const proposalStatus = pgEnum("proposal_status", [
+    "pending",
+    "accepted",
+    "building",
+    "testing",
+    "deployed",
+    "integrated",
+    "rejected",
+]);
+
+export const customAgentProposals = pgTable("custom_agent_proposals", {
+    id: text("id").primaryKey().$defaultFn(() => nanoid()),
+    userId: text("user_id")
+        .notNull()
+        .references(() => user.id, { onDelete: "cascade" }),
+    agentName: text("agent_name").notNull(),
+    useCase: text("use_case").notNull(),
+    behaviorDescription: text("behavior_description").notNull(),
+    voiceStyle: text("voice_style").notNull(),
+    language: text("language").notNull().default("English"),
+    contactEmail: text("contact_email").notNull(),
+    additionalNotes: text("additional_notes"),
+    status: proposalStatus("status").notNull().default("pending"),
+    statusUpdatedAt: timestamp("status_updated_at").defaultNow(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});

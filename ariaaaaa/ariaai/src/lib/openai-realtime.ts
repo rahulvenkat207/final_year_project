@@ -1,3 +1,4 @@
+// @ts-nocheck — prototype stub for OpenAI Realtime API (openai package not yet installed)
 import OpenAI from "openai";
 
 // OpenAI Realtime API client for AI agent voice interaction

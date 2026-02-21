@@ -1,0 +1,12 @@
+﻿src/lib/db-optimized.ts(31,19): error TS7006: Parameter 'err' implicitly has an 'any' type.
+src/lib/livekit.ts(22,5): error TS2322: Type 'Promise<string>' is not assignable to type 'string'.
+src/lib/openai-realtime.ts(1,20): error TS2307: Cannot find module 'openai' or its corresponding type declarations.
+src/lib/openai-realtime.ts(70,38): error TS2345: Argument of type 'ArrayBufferLike' is not assignable to parameter of type 'ArrayBuffer'.
+  Type 'SharedArrayBuffer' is missing the following properties from type 'ArrayBuffer': resizable, resize, detached, transfer, transferToFixedLength
+src/lib/stream.ts(27,23): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(key: string, options?: StreamChatOptions | undefined): StreamChat', gave the following error.
+    Object literal may only specify known properties, and 'token' does not exist in type 'StreamChatOptions'.
+  Overload 2 of 2, '(key: string, secret?: string | undefined, options?: StreamChatOptions | undefined): StreamChat', gave the following error.
+    Argument of type '{ token: string; user: { id: string; }; }' is not assignable to parameter of type 'string'.
+src/modules/meetings/ui/components/meeting-chat.tsx(85,22): error TS2322: Type '{ children: Element; channelId: string; }' is not assignable to type 'IntrinsicAttributes & ChannelPropsForwardedToComponentContext & { activeUnreadHandler?: ((unread: number, documentTitle: string) => void) | undefined; ... 17 more ...; videoAttachmentSizeHandler?: VideoAttachmentSizeHandler | undefined; } & { ...; }'.
+  Property 'channelId' does not exist on type 'IntrinsicAttributes & ChannelPropsForwardedToComponentContext & { activeUnreadHandler?: ((unread: number, documentTitle: string) => void) | undefined; ... 17 more ...; videoAttachmentSizeHandler?: VideoAttachmentSizeHandler | undefined; } & { ...; }'. Did you mean 'channel'?

@@ -20,7 +20,8 @@ import {
   Sparkles, 
   Zap,
   ChevronRight,
-  Plus
+  Plus,
+  Wand2
 } from "lucide-react";
 
 import Image from "next/image";
@@ -44,6 +45,11 @@ const firstSection = [
     icon: Bot,
     label: "Agents",
     href: "/agents",
+  },
+  {
+    icon: Wand2,
+    label: "Customization",
+    href: "/customization",
   },
 ];
 

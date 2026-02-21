@@ -1,12 +1,12 @@
 import { AccessToken } from "livekit-server-sdk";
 
 // Generate LiveKit access token
-export const generateLiveKitToken = (
+export const generateLiveKitToken = async (
     userId: string,
     roomName: string,
     apiKey: string,
     apiSecret: string
-): string => {
+): Promise<string> => {
     const token = new AccessToken(apiKey, apiSecret, {
         identity: userId,
     });
@@ -19,7 +19,7 @@ export const generateLiveKitToken = (
         canPublishData: true,
     });
 
-    return token.toJwt();
+    return await token.toJwt();
 };
 
 // Get LiveKit server credentials
